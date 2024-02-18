@@ -262,7 +262,7 @@
       }
 
       var textNode = new Konva.Text({
-        text: "Wpisz tekst główny",
+        text: "Wpisz tytuł",
         x: 50,
         y: 80,
         fontSize: 50,
@@ -272,7 +272,7 @@
       });
 
       var subTextNode = new Konva.Text({
-        text: "Wpisz tekst alternatywny",
+        text: "Wpisz podtytuł",
         x: 50,
         y: 140,
         fontSize: 30,
@@ -312,40 +312,52 @@
       refreshPreview();
 
       function setupColorPicker(node) {
-        node.on("click tap", (e) => {
-          var oldWrapper = document.getElementsByClassName(
-            "color-picker-wrapper"
-          )[0];
-          if (oldWrapper) document.body.removeChild(oldWrapper);
+        node.on("click", (e) => {
+          handleColorPickerPopup(e, e.evt.clientX, e.evt.clientY - 30);
+        });
 
-          var wrapper = document.createElement("div");
+        node.on("tap", (e) => {
+          Coloris.close();
 
-          document.body.appendChild(wrapper);
-          wrapper.style.position = "absolute";
-          wrapper.style.left = e.evt.clientX + "px";
+          handleColorPickerPopup(
+            e,
+            e.evt.changedTouches[0].clientX,
+            e.evt.changedTouches[0].clientY + 120
+          );
+        });
+      }
 
-          let newY = e.evt.clientY - 30 > 0 ? e.evt.clientY - 30 : 0;
+      function handleColorPickerPopup(e, x, y) {
+        var oldWrapper = document.getElementsByClassName(
+          "color-picker-wrapper"
+        )[0];
+        if (oldWrapper) document.body.removeChild(oldWrapper);
 
-          wrapper.style.top = newY + "px";
-          wrapper.style.width = "20px";
-          wrapper.classList.add("color-picker-wrapper");
+        var wrapper = document.createElement("div");
 
-          var input = document.createElement("input");
-          wrapper.appendChild(input);
-          input.type = "text";
-          input.id = "colorpicker";
-          input.value = e.target.fill();
-          Coloris({
-            el: "#colorpicker",
-            defaultColor: e.target.fill(),
-            selectInput: true,
-            onChange: (color) => {
-              e.target.fill(color);
-              refreshPreview();
-            },
-          });
+        document.body.appendChild(wrapper);
+        wrapper.style.position = "absolute";
+        wrapper.style.left = x + "px";
 
-          //input.click();
+        let newY = y > 0 ? y : 0;
+
+        wrapper.style.top = newY + "px";
+        wrapper.style.width = "20px";
+        wrapper.classList.add("color-picker-wrapper");
+
+        var input = document.createElement("input");
+        wrapper.appendChild(input);
+        input.type = "text";
+        input.id = "colorpicker";
+        input.value = e.target.fill();
+        Coloris({
+          el: "#colorpicker",
+          defaultColor: e.target.fill(),
+          selectInput: true,
+          onChange: (color) => {
+            e.target.fill(color);
+            refreshPreview();
+          },
         });
       }
 
