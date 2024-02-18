@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="https://unpkg.com/konva@9.3.3/konva.min.js"></script>
+    <meta charset="utf-8" />
+    <title>Konva Editable Text on html5 canvas Demo</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #f0f0f0;
+      }
+      #container,
+      #preview {
+      }
+
+      .common-container {
+        display: inline-block;
+        width: 640px;
+        height: 320px;
+        background-color: lightgrey;
+        border: 1px solid black;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="container" class="common-container"></div>
+    <div id="preview" class="common-container"></div>
+    <script>
+      var wizardStage = new Konva.Stage({
+        container: "container",
+        width: 640,
+        height: 320,
+      });
+
+      var previewStage = new Konva.Stage({
+        container: "preview",
+        width: 640,
+        height: 320,
+      });
+
+      var wizardLayer = new Konva.Layer();
+      wizardStage.add(wizardLayer);
+
+      var previewLayer = new Konva.Layer();
+      previewStage.add(previewLayer);
+
+      var textNodes = [];
+      var imageNodes = [];
+      var nodesForPreview = [];
+
+      function createTransformer(node, isResizable, isRotatable) {
+        let tr = new Konva.Transformer({
+          node: node,
+          enabledAnchors: isResizable ? ["middle-left", "middle-right"] : [],
+          rotateEnabled: !!isRotatable,
+          // set minimum width of text
+          boundBoxFunc: function (oldBox, newBox) {
+            newBox.width = Math.max(30, newBox.width);
+            return newBox;
+          },
+        });
+
+        node.on("transform", function () {
+          // reset scale, so only with is changing by transformer
+          node.setAttrs({
+            width: node.width() * node.scaleX(),
+            scaleX: 1,
+          });
+          refreshPreview();
+        });
+
+        return tr;
+      }
+
+      function addTextNode(newNode, addTransformer) {
+        wizardLayer.add(newNode);
+        let tr;
+
+        if (addTransformer) {
+          tr = createTransformer(newNode);
+          wizardLayer.add(tr);
+        }
+
+        newNode.on("dragend", () => {
+          refreshPreview();
+        });
+
+        textNodes.push([newNode, tr]);
+        nodesForPreview.push(newNode);
+      }
+
+      function addImageNode(url, addTransformer) {
+        var imageObj = new Image();
+        let image = new Konva.Image({
+          x: 450,
+          y: 210,
+          image: imageObj,
+          width: 160,
+          height: 80,
+          scale: 1,
+          scaleX: 1,
+          draggable: true,
+        });
+
+        image.on("dragend", () => {
+          refreshPreview();
+        });
+
+        imageObj.onload = function () {
+          wizardLayer.add(image);
+        };
+        imageObj.src = url;
+
+        let tr;
+        if (addTransformer) {
+          tr = createTransformer(image, false, true);
+          wizardLayer.add(tr);
+        }
+
+        image.on("dblclick dbltap", (e) => {
+          var input = document.createElement("input");
+          input.type = "file";
+
+          input.onchange = (e) => {
+            var file = e.target.files[0];
+
+            var reader = new FileReader();
+            reader.readAsDataURL(file);
+
+            reader.onload = (readerEvent) => {
+              var content = readerEvent.target.result;
+              imageObj.src = content;
+              refreshPreview();
+            };
+          };
+
+          input.click();
+        });
+
+        imageNodes.push([image, tr]);
+        nodesForPreview.push(image);
+      }
+
+      function addButton() {
+        var group = new Konva.Group({
+          x: 80,
+          y: 225,
+          width: 160,
+          height: 40,
+          draggable: true,
+          align: "center",
+          verticalAlign: "middle",
+        });
+
+        wizardLayer.add(group);
+
+        group.on("dragend", () => {
+          refreshPreview();
+        });
+
+        var buttonRectangle = new Konva.Rect({
+          width: 160,
+          height: 40,
+          fill: "darkorange",
+        });
+
+        var buttonTr = createTransformer(buttonRectangle, true);
+        wizardLayer.add(buttonTr);
+
+        buttonTr.on("transformend", (e) => {
+          updateTextPosition();
+          refreshPreview();
+        });
+
+        group.add(buttonRectangle);
+
+        var buttonText = new Konva.Text({
+          text: "Kup teraz",
+          fontSize: 18,
+          fontFamily: "Calibri",
+          fill: "#fff",
+          align: "center",
+          verticalAlign: "middle",
+        });
+
+        group.add(buttonText);
+
+        var tr = createTransformer(buttonText);
+        textNodes.push([buttonText, tr]);
+        wizardLayer.add(tr);
+
+        nodesForPreview.push(group);
+
+        function updateTextPosition() {
+          buttonText.setAttr(
+            "x",
+            buttonRectangle.width() / 2 - buttonText.width() / 2
+          );
+          buttonText.setAttr(
+            "y",
+            buttonRectangle.height() / 2 - buttonText.height() / 2
+          );
+        }
+
+        updateTextPosition();
+      }
+
+      var textNode = new Konva.Text({
+        text: "Wpisz tekst główny",
+        x: 50,
+        y: 80,
+        fontSize: 50,
+        draggable: true,
+        width: 540,
+        fill: "#515151",
+      });
+
+      var subTextNode = new Konva.Text({
+        text: "Wpisz tekst alternatywny",
+        x: 50,
+        y: 140,
+        fontSize: 30,
+        draggable: true,
+        width: 540,
+        fill: "#515151",
+      });
+
+      addTextNode(textNode, true);
+      addTextNode(subTextNode, true);
+      addImageNode("https://placehold.co/160x80.png", true);
+      addButton();
+
+      function refreshPreview() {
+        previewLayer.destroy();
+        new Konva.Layer();
+        previewStage.add(previewLayer);
+
+        nodesForPreview.forEach((node) => {
+          renderOnPreview(node);
+        });
+      }
+
+      function renderOnPreview(node) {
+        clonedNode = node.clone();
+        clonedNode.draggable = false;
+        clonedNode.on("dragstart", () => {
+          clonedNode.stopDrag();
+        });
+        previewLayer.add(clonedNode);
+      }
+
+      refreshPreview();
+      wizardStage.on("click", () => {
+        "main layer changed";
+      });
+
+      textNodes.forEach((nodeTuple) => {
+        [node, tr] = nodeTuple;
+
+        node.on("dblclick dbltap", (e) => {
+          // hide text node and transformer:
+          let thisNode = e.target;
+          thisNode.hide();
+          tr.hide();
+
+          // create textarea over canvas with absolute position
+          // first we need to find position for textarea
+          // how to find it?
+
+          // at first lets find position of text node relative to the stage:
+          var textPosition = thisNode.absolutePosition();
+
+          // so position of textarea will be the sum of positions above:
+          var areaPosition = {
+            x: wizardStage.container().offsetLeft + textPosition.x + 1, //+
+            //thisNode.width() / 3,
+            y: wizardStage.container().offsetTop + textPosition.y - 2, //+
+            //thisNode.height() / 2,
+          };
+
+          // create textarea and style it
+          var textarea = document.createElement("textarea");
+          document.body.appendChild(textarea);
+
+          // apply many styles to match text on canvas as close as possible
+          // remember that text rendering on canvas and on the textarea can be different
+          // and sometimes it is hard to make it 100% the same. But we will try...
+          textarea.value = thisNode.text();
+          textarea.style.position = "absolute";
+          textarea.style.top = areaPosition.y + "px";
+          textarea.style.left = areaPosition.x + "px";
+          textarea.style.width =
+            thisNode.width() - thisNode.padding() * 2 + "px";
+          textarea.style.height =
+            thisNode.height() - thisNode.padding() * 2 + 5 + "px";
+          textarea.style.fontSize = thisNode.fontSize() + "px";
+          textarea.style.border = "none";
+          textarea.style.padding = "0px";
+          textarea.style.margin = "0px";
+          textarea.style.overflow = "hidden";
+          textarea.style.background = "none";
+          textarea.style.outline = "none";
+          textarea.style.resize = "none";
+          textarea.style.lineHeight = thisNode.lineHeight();
+          textarea.style.fontFamily = thisNode.fontFamily();
+          textarea.style.transformOrigin = "left top";
+          textarea.style.textAlign = thisNode.align();
+          textarea.style.color = thisNode.fill();
+          rotation = thisNode.rotation();
+          var transform = "";
+          if (rotation) {
+            transform += "rotateZ(" + rotation + "deg)";
+          }
+
+          var px = 0;
+          // also we need to slightly move textarea on firefox
+          // because it jumps a bit
+          var isFirefox =
+            navigator.userAgent.toLowerCase().indexOf("firefox") > -1;
+          if (isFirefox) {
+            px += 2 + Math.round(thisNode.fontSize() / 20);
+          }
+          transform += "translateY(-" + px + "px)";
+
+          textarea.style.transform = transform;
+
+          // reset height
+          textarea.style.height = "auto";
+          // after browsers resized it we can set actual value
+          textarea.style.height = textarea.scrollHeight + 3 + "px";
+
+          textarea.focus();
+
+          function removeTextarea() {
+            textarea.parentNode.removeChild(textarea);
+            window.removeEventListener("click", handleOutsideClick);
+            thisNode.show();
+            tr.show();
+            tr.forceUpdate();
+            refreshPreview();
+          }
+
+          function setTextareaWidth(newWidth) {
+            if (!newWidth) {
+              // set width for placeholder
+              newWidth = thisNode.placeholder.length * thisNode.fontSize();
+            }
+            // some extra fixes on different browsers
+            var isSafari = /^((?!chrome|android).)*safari/i.test(
+              navigator.userAgent
+            );
+            var isFirefox =
+              navigator.userAgent.toLowerCase().indexOf("firefox") > -1;
+            if (isSafari || isFirefox) {
+              newWidth = Math.ceil(newWidth);
+            }
+
+            var isEdge =
+              document.documentMode || /Edge/.test(navigator.userAgent);
+            if (isEdge) {
+              newWidth += 1;
+            }
+            textarea.style.width = newWidth + "px";
+          }
+
+          textarea.addEventListener("keydown", function (e) {
+            // hide on enter
+            // but don't hide on shift + enter
+            if (e.keyCode === 13 && !e.shiftKey) {
+              thisNode.text(textarea.value);
+              removeTextarea();
+            }
+            // on esc do not set value back to node
+            if (e.keyCode === 27) {
+              removeTextarea();
+            }
+          });
+
+          textarea.addEventListener("keydown", function (e) {
+            scale = thisNode.getAbsoluteScale().x;
+            setTextareaWidth(thisNode.width() * scale);
+            textarea.style.height = "auto";
+            textarea.style.height =
+              textarea.scrollHeight + thisNode.fontSize() + "px";
+          });
+
+          function handleOutsideClick(e) {
+            if (e.target !== textarea) {
+              thisNode.text(textarea.value);
+              removeTextarea();
+            }
+          }
+          setTimeout(() => {
+            window.addEventListener("click", handleOutsideClick);
+          });
+        });
+      });
+    </script>
+  </body>
+</html>
