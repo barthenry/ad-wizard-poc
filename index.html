@@ -2,37 +2,87 @@
 <html>
   <head>
     <script src="https://unpkg.com/konva@9.3.3/konva.min.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/gh/mdbassit/Coloris@latest/dist/coloris.min.css"
+    />
+    <script src="https://cdn.jsdelivr.net/gh/mdbassit/Coloris@latest/dist/coloris.min.js"></script>
     <meta charset="utf-8" />
-    <title>Konva Editable Text on html5 canvas Demo</title>
+    <title>Ads wizard preview</title>
     <style>
       body {
         margin: 0;
         padding: 0;
         background-color: #f0f0f0;
       }
-      #container,
-      #preview {
+
+      legend {
+        background-color: #000;
+        color: #fff;
+        padding: 3px 6px;
       }
 
       .common-container {
         display: inline-block;
         width: 640px;
         height: 320px;
-        background-color: lightgrey;
         border: 1px solid black;
+      }
+
+      .color-picker-wrapper .clr-field button {
+        width: 100%;
+        height: 100%;
+        border-radius: 5px;
+      }
+
+      div.color-picker-wrapper {
+        position: absolute;
+      }
+
+      div.color-picker-wrapper input {
+        box-sizing: border-box;
+        width: 25px;
+        border: 2px solid black;
+        cursor: pointer;
+        outline: solid 2px black;
       }
     </style>
   </head>
 
   <body>
-    <div id="container" class="common-container"></div>
-    <div id="preview" class="common-container"></div>
+    <fieldset>
+      <legend>Stwórz własną kreację reklamową</legend>
+      <p>
+        💡Elementy reklamy możesz swobodnie przesuwać za pomocą palca lub
+        myszki.
+        <br />💡Po wybraniu elementu możesz zmienić jego kolor za pomocą
+        kolorowego prostokąta. <br />💡Kliknij dwa razy na tekście lub grafice
+        by dokonać edycji.
+      </p>
+      <div id="container" class="common-container"></div>
+      <div id="preview" class="common-container"></div>
+    </fieldset>
+
     <script>
+      var textNodes = [];
+      var imageNodes = [];
+      var nodesForPreview = [];
+
       var wizardStage = new Konva.Stage({
         container: "container",
         width: 640,
         height: 320,
       });
+
+      var backgroundRect = new Konva.Rect({
+        width: 640,
+        height: 320,
+        x: 0,
+        y: 0,
+        fill: "#d3d3d3",
+      });
+
+      nodesForPreview.push(backgroundRect);
 
       var previewStage = new Konva.Stage({
         container: "preview",
@@ -43,12 +93,11 @@
       var wizardLayer = new Konva.Layer();
       wizardStage.add(wizardLayer);
 
+      wizardLayer.add(backgroundRect);
+      setupColorPicker(backgroundRect);
+
       var previewLayer = new Konva.Layer();
       previewStage.add(previewLayer);
-
-      var textNodes = [];
-      var imageNodes = [];
-      var nodesForPreview = [];
 
       function createTransformer(node, isResizable, isRotatable) {
         let tr = new Konva.Transformer({
@@ -139,6 +188,8 @@
           input.click();
         });
 
+        setPointerStyle(image, "move");
+
         imageNodes.push([image, tr]);
         nodesForPreview.push(image);
       }
@@ -165,6 +216,8 @@
           height: 40,
           fill: "darkorange",
         });
+
+        setPointerStyle(buttonRectangle, "move");
 
         var buttonTr = createTransformer(buttonRectangle, true);
         wizardLayer.add(buttonTr);
@@ -205,6 +258,7 @@
         }
 
         updateTextPosition();
+        setupColorPicker(buttonRectangle);
       }
 
       var textNode = new Konva.Text({
@@ -229,7 +283,10 @@
 
       addTextNode(textNode, true);
       addTextNode(subTextNode, true);
-      addImageNode("https://placehold.co/160x80.png", true);
+      addImageNode(
+        "https://placehold.co/160x80/png?text=Logotyp\\n(160x80)",
+        true
+      );
       addButton();
 
       function refreshPreview() {
@@ -245,6 +302,7 @@
       function renderOnPreview(node) {
         clonedNode = node.clone();
         clonedNode.draggable = false;
+        clonedNode.off();
         clonedNode.on("dragstart", () => {
           clonedNode.stopDrag();
         });
@@ -252,12 +310,60 @@
       }
 
       refreshPreview();
-      wizardStage.on("click", () => {
-        "main layer changed";
-      });
+
+      function setupColorPicker(node) {
+        node.on("click tap", (e) => {
+          var oldWrapper = document.getElementsByClassName(
+            "color-picker-wrapper"
+          )[0];
+          if (oldWrapper) document.body.removeChild(oldWrapper);
+
+          var wrapper = document.createElement("div");
+
+          document.body.appendChild(wrapper);
+          wrapper.style.position = "absolute";
+          wrapper.style.left = e.evt.clientX + "px";
+
+          let newY = e.evt.clientY - 30 > 0 ? e.evt.clientY - 30 : 0;
+
+          wrapper.style.top = newY + "px";
+          wrapper.style.width = "20px";
+          wrapper.classList.add("color-picker-wrapper");
+
+          var input = document.createElement("input");
+          wrapper.appendChild(input);
+          input.type = "text";
+          input.id = "colorpicker";
+          input.value = e.target.fill();
+          Coloris({
+            el: "#colorpicker",
+            defaultColor: e.target.fill(),
+            selectInput: true,
+            onChange: (color) => {
+              e.target.fill(color);
+              refreshPreview();
+            },
+          });
+
+          //input.click();
+        });
+      }
+
+      function setPointerStyle(node, cursorStyle) {
+        node.on("mouseenter", function () {
+          wizardStage.container().style.cursor = cursorStyle;
+        });
+
+        node.on("mouseleave", function () {
+          wizardStage.container().style.cursor = "default";
+        });
+      }
 
       textNodes.forEach((nodeTuple) => {
         [node, tr] = nodeTuple;
+
+        setupColorPicker(node);
+        setPointerStyle(node, "text");
 
         node.on("dblclick dbltap", (e) => {
           // hide text node and transformer:
